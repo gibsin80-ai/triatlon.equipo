@@ -1,0 +1,95 @@
+/* ============================================================
+   TRIATLÓN EQUIPO — Backend (Google Apps Script)
+   Pega TODO esto en: Extensiones > Apps Script de tu Google Sheet.
+   (Reemplaza la versión anterior y publica una NUEVA VERSIÓN.)
+   Crea solas las hojas "Sesiones" y "Config".
+   ============================================================ */
+
+var HOJA = 'Sesiones';
+var ENCABEZADOS = ['id','fecha','atleta','deporte','tipo','distancia','unidad','tiempo_seg','rpe','notas','creado'];
+var HOJA_CFG = 'Config';
+
+function doGet(e) {
+  try {
+    var accion = (e && e.parameter && e.parameter.action) || 'status';
+    if (accion === 'add')       return _json(agregar(e.parameter));
+    if (accion === 'list')      return _json(listar());
+    if (accion === 'delete')    return _json(borrar(e.parameter.id));
+    if (accion === 'getconfig') return _json(getConfig());
+    if (accion === 'setconfig') return _json(setConfig(e.parameter));
+    return _json({ ok: true, msg: 'API Triatlón viva' });
+  } catch (err) {
+    return _json({ ok: false, error: String(err) });
+  }
+}
+
+/* ---------- Sesiones ---------- */
+function _hoja() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var h = ss.getSheetByName(HOJA);
+  if (!h) { h = ss.insertSheet(HOJA); h.appendRow(ENCABEZADOS); }
+  if (h.getLastRow() === 0) h.appendRow(ENCABEZADOS);
+  return h;
+}
+function agregar(p) {
+  var h = _hoja();
+  var id = 's' + new Date().getTime();
+  h.appendRow([ id, p.fecha||'', p.atleta||'', p.deporte||'', p.tipo||'',
+    p.distancia||'', p.unidad||'', p.tiempo_seg||'', p.rpe||'', p.notas||'', new Date() ]);
+  return { ok: true, id: id };
+}
+function listar() {
+  var h = _hoja();
+  var datos = h.getDataRange().getValues();
+  var out = [];
+  for (var i = 1; i < datos.length; i++) {
+    var f = datos[i];
+    if (!f[0]) continue;
+    out.push({ id:f[0], fecha:String(f[1]), atleta:f[2], deporte:f[3], tipo:f[4],
+      distancia:f[5], unidad:f[6], tiempo_seg:f[7], rpe:f[8], notas:f[9] });
+  }
+  return { ok: true, sesiones: out };
+}
+function borrar(id) {
+  var h = _hoja();
+  var datos = h.getDataRange().getValues();
+  for (var i = datos.length - 1; i >= 1; i--) {
+    if (String(datos[i][0]) === String(id)) { h.deleteRow(i + 1); return { ok: true, id: id }; }
+  }
+  return { ok: false, error: 'no encontrado' };
+}
+
+/* ---------- Config de días por atleta ---------- */
+function _hojaCfg() {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var h = ss.getSheetByName(HOJA_CFG);
+  if (!h) { h = ss.insertSheet(HOJA_CFG); h.appendRow(['atleta','dias_json']); }
+  if (h.getLastRow() === 0) h.appendRow(['atleta','dias_json']);
+  return h;
+}
+function getConfig() {
+  var h = _hojaCfg();
+  var datos = h.getDataRange().getValues();
+  var cfg = {};
+  for (var i = 1; i < datos.length; i++) {
+    if (!datos[i][0]) continue;
+    try { cfg[datos[i][0]] = JSON.parse(datos[i][1] || '{}'); } catch (e) { cfg[datos[i][0]] = {}; }
+  }
+  return { ok: true, config: cfg };
+}
+function setConfig(p) {
+  var h = _hojaCfg();
+  var atleta = p.atleta || '';
+  var dias = p.dias || '{}';
+  var datos = h.getDataRange().getValues();
+  for (var i = 1; i < datos.length; i++) {
+    if (String(datos[i][0]) === String(atleta)) { h.getRange(i + 1, 2).setValue(dias); return { ok: true }; }
+  }
+  h.appendRow([atleta, dias]);
+  return { ok: true };
+}
+
+function _json(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}
