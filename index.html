@@ -4,6 +4,12 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Triatlón Equipo · Registro</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#16191D">
+<link rel="apple-touch-icon" href="icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Triatlón">
 <style>
   :root{
     --ink:#16191D; --muted:#6B7280; --bg:#F4F6F8; --card:#FFFFFF;
@@ -179,6 +185,38 @@
     font-weight:600; z-index:60; box-shadow:0 8px 24px rgba(0,0,0,.25); opacity:0; pointer-events:none; transition:opacity .2s}
   .toast.show{opacity:1}
 
+  /* perfil / imc */
+  .perfil-card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px}
+  .perfil-card .pf-row{display:grid; grid-template-columns:1fr 1fr 1fr; gap:10px; text-align:center}
+  .perfil-card .pf-row > div{background:var(--bg); border-radius:12px; padding:12px 6px}
+  .perfil-card .pf-row b{display:block; font-size:22px; font-variant-numeric:tabular-nums}
+  .perfil-card .pf-row small{font-size:11px; color:var(--muted); font-weight:600}
+  .perfil-card .pf-cat{text-align:center; font-weight:800; font-size:14px; margin-top:12px}
+  .perfil-card .pf-note{font-size:12px; color:var(--muted); margin-top:10px; line-height:1.5; text-align:center}
+  .perfil-card .pf-empty{color:var(--muted); font-size:13px; text-align:center; padding:8px 4px}
+
+  /* dieta */
+  .link-dieta{width:100%; margin-top:10px; height:50px; border-radius:14px;
+    background:var(--carrera); color:#fff; font-weight:800; font-size:15px;
+    display:flex; align-items:center; justify-content:center; gap:8px}
+  .diet-intro{color:var(--muted); font-size:13px; margin:2px 4px 14px}
+  .diet-card{background:var(--card); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px; margin-top:12px}
+  .diet-card h3{font-size:16px; margin-bottom:4px}
+  .diet-card h3 .em{margin-right:6px}
+  .diet-card .out{margin-top:10px}
+  .diet-card .row{display:flex; gap:10px; padding:9px 0; border-top:1px solid var(--line); font-size:14px}
+  .diet-card .row:first-child{border-top:none}
+  .diet-card .row b{flex:0 0 70px; color:#16A34A; font-size:12.5px; text-transform:uppercase; letter-spacing:.03em; padding-top:1px}
+  .diet-card .row span{flex:1}
+  .chips{display:flex; flex-wrap:wrap; gap:7px; margin-top:8px}
+  .chip{font-size:13px; background:var(--bg); border-radius:999px; padding:6px 12px; font-weight:600}
+  .grp{margin-top:14px}
+  .grp .lbl{font-size:12.5px; font-weight:800; color:var(--ink)}
+  .grp .lbl .em{margin-right:6px}
+  .diet-note{background:#FFF7ED; border:1px solid #FED7AA; color:#9A3412;
+    border-radius:14px; padding:13px 15px; font-size:13px; margin-top:12px; line-height:1.5}
+  .diet-note b{font-weight:800}
+
   @media print{
     .no-print{display:none !important}
     body, .wrap{background:#fff}
@@ -219,6 +257,7 @@
       <div class="stat"><span class="num" data-home-stat="Andrés">0</span><small>sesiones</small></div>
     </button>
     <button class="link-informe" onclick="abrirInforme()">📊 Ver informe del equipo</button>
+    <button class="link-dieta" onclick="abrirDieta()">🥗 Guía de alimentación</button>
     <div id="bannerLocal" class="banner hidden">
       <b>Modo local.</b> Aún no conectas Google Sheets, así que no se guarda al recargar. Pega tu URL de Apps Script en <b>API_URL</b> dentro del archivo.
     </div>
@@ -241,7 +280,10 @@
       </div>
     </div>
 
-    <div class="section-label">Mi semana <button class="edit" onclick="abrirCfg()">⚙ Editar días</button></div>
+    <div class="section-label">Perfil <button class="edit" onclick="abrirCfg()">⚙ Editar perfil</button></div>
+    <div class="perfil-card" id="perfilCard"></div>
+
+    <div class="section-label">Mi semana</div>
     <div class="plan-card">
       <div class="phead"><span class="phase" id="planFase">—</span><span class="wk" id="planSemana">—</span></div>
       <div id="diaLista"></div>
@@ -267,6 +309,56 @@
     </div>
     <div id="informeBody"></div>
     <button class="print-btn no-print" onclick="window.print()">🖨 Imprimir / Guardar PDF</button>
+  </div>
+
+  <!-- ===== ALIMENTACIÓN ===== -->
+  <div id="dieta" class="hidden">
+    <div class="top no-print">
+      <button class="back" onclick="irHome()">←</button>
+      <div class="title">Alimentación</div>
+    </div>
+    <p class="diet-intro">La comida es el combustible. La regla simple: carbohidratos para la energía, proteína para reparar, y mucha agua — sobre todo con el calor de aquí.</p>
+
+    <div class="diet-card">
+      <h3><span class="em">🍽️</span>¿Qué comer según tu sesión de hoy?</h3>
+      <div class="seg" id="dietSeg" style="margin-top:12px">
+        <button data-d="corta" class="on">Sesión corta</button>
+        <button data-d="larga">Larga / con calor</button>
+        <button data-d="fuerza">Fuerza</button>
+      </div>
+      <div class="out" id="dietOut"></div>
+    </div>
+
+    <div class="diet-card">
+      <h3><span class="em">🥗</span>El plato de cada día</h3>
+      <div class="grp"><div class="lbl"><span class="em">🌾</span>Carbohidratos (energía)</div>
+        <div class="chips"><span class="chip">Avena</span><span class="chip">Tortilla</span><span class="chip">Arroz</span><span class="chip">Papa</span><span class="chip">Pan integral</span><span class="chip">Fruta</span></div></div>
+      <div class="grp"><div class="lbl"><span class="em">🥚</span>Proteína en cada comida</div>
+        <div class="chips"><span class="chip">Huevo (La Gallina Regia)</span><span class="chip">Pollo</span><span class="chip">Pescado</span><span class="chip">Frijol</span><span class="chip">Lácteos</span></div></div>
+      <div class="grp"><div class="lbl"><span class="em">🥑</span>Grasas buenas</div>
+        <div class="chips"><span class="chip">Aguacate</span><span class="chip">Nueces</span><span class="chip">Aceite de oliva</span></div></div>
+      <div class="grp"><div class="lbl"><span class="em">🥦</span>Color en el plato</div>
+        <div class="chips"><span class="chip">Verdura variada</span><span class="chip">Fruta</span></div></div>
+    </div>
+
+    <div class="diet-card">
+      <h3><span class="em">💧</span>Hidratación (clave por el calor)</h3>
+      <div class="out">
+        <div class="row"><b>Todo el día</b><span>Toma agua de forma constante, no solo al entrenar.</span></div>
+        <div class="row"><b>Largas / calor</b><span>Agua + electrolitos. Sudan mucho sodio en Nuevo León.</span></div>
+        <div class="row"><b>Sesión larga</b><span>Pésate antes y después: cada kg perdido ≈ 1 L de líquido a reponer.</span></div>
+      </div>
+    </div>
+
+    <div class="diet-card">
+      <h3><span class="em">💊</span>Suplementos</h3>
+      <div class="out">
+        <div class="row"><b>Primero</b><span>La comida real cubre casi todo. Los suplementos solo llenan huecos.</span></div>
+        <div class="row"><b>Útiles</b><span>Electrolitos por el calor. Cafeína o creatina son opcionales.</span></div>
+        <div class="row"><b>Cuidado</b><span>El hierro NO se toma a ciegas, ni megadosis de vitaminas.</span></div>
+      </div>
+      <div class="diet-note"><b>Importante:</b> esto es orientación general, no soy médico. Antes de empezar cualquier suplemento —sobre todo hierro— lo mejor es un chequeo con análisis de sangre. Si alguien tiene alguna condición o duda, que lo vea con su doctor.</div>
+    </div>
   </div>
 
   <button id="fab" class="fab hidden" onclick="abrirForm()">＋ Registrar sesión</button>
@@ -306,14 +398,17 @@
   </div>
 </div>
 
-<!-- ===== MODAL EDITAR SEMANA ===== -->
+<!-- ===== MODAL EDITAR PERFIL ===== -->
 <div id="modalCfg" class="modal hidden">
   <div class="sheet">
     <div class="grab"></div>
-    <h3 id="cfgTitulo">Editar mi semana</h3>
-    <div class="sub">Asigna qué toca cada día. Cada quien la suya.</div>
+    <h3 id="cfgTitulo">Mi perfil</h3>
+    <div class="sub">Tus datos y los días que entrenas. Cada quien el suyo.</div>
+    <div class="field"><label>Altura (cm)</label><input type="number" id="cfgAltura" inputmode="numeric" placeholder="175"></div>
+    <div class="field"><label>Peso (kg)</label><input type="number" id="cfgPeso" inputmode="decimal" placeholder="72"></div>
+    <div class="sub" style="margin-top:18px; margin-bottom:4px"><b>Días de entrenamiento</b></div>
     <div id="cfgRows"></div>
-    <button class="save" onclick="guardarCfg()">Guardar semana</button>
+    <button class="save" onclick="guardarCfg()">Guardar perfil</button>
     <button class="ghost" onclick="cerrarCfg()">Cancelar</button>
   </div>
 </div>
@@ -359,9 +454,9 @@ const PLAN = {
 const DOW = [["lun","Lun"],["mar","Mar"],["mie","Mié"],["jue","Jue"],["vie","Vie"],["sab","Sáb"],["dom","Dom"]];
 const DEFAULT_DIAS = { lun:"F", mar:"A", mie:"B", jue:"", vie:"F", sab:"C", dom:"" };
 let CONFIG = {
-  "Karen":  { dias:{...DEFAULT_DIAS} },
-  "Homero": { dias:{...DEFAULT_DIAS} },
-  "Andrés": { dias:{...DEFAULT_DIAS} }
+  "Karen":  { dias:{...DEFAULT_DIAS}, peso:"", altura:"" },
+  "Homero": { dias:{...DEFAULT_DIAS}, peso:"", altura:"" },
+  "Andrés": { dias:{...DEFAULT_DIAS}, peso:"", altura:"" }
 };
 const SLOT_IDX = { A:0, B:1, C:2 };
 const SLOT_OPC = [["","Descanso"],["A","Sesión 1"],["B","Sesión 2"],["C","Sesión 3 (larga/clave)"],["F","Fuerza (equipo)"]];
@@ -398,6 +493,8 @@ function haySesion(nombre, iso, esperado){ return SESIONES.some(s=>s.atleta===no
 function cumplSemana(nombre){ const cfg=(CONFIG[nombre]&&CONFIG[nombre].dias)||{}; let a=0,h=0;
   weekDates().forEach(d=>{ const e=esperadoDeSlot(cfg[d.key]||""); if(e){ a++; if(haySesion(nombre,d.iso,e)) h++; } });
   return { asign:a, hechos:h, pct:a?Math.round(h/a*100):0 }; }
+function imc(peso, altura){ peso=num(peso); altura=num(altura); if(!peso||!altura) return null; const m=altura/100; return peso/(m*m); }
+function imcCat(v){ if(v<18.5) return ["Bajo peso","#0EA5B5"]; if(v<25) return ["Rango saludable","#16A34A"]; if(v<30) return ["Sobrepeso","#F97316"]; return ["Obesidad","#DC2626"]; }
 
 /* ===== Datos ===== */
 async function cargar(){
@@ -408,7 +505,10 @@ async function cargar(){
   }catch(e){ toast("No se pudo conectar a la nube"); }
   try{
     const r2 = await fetch(`${API_URL}?action=getconfig`); const j2 = await r2.json();
-    if(j2.config){ for(const k in j2.config){ if(CONFIG[k] && j2.config[k]) CONFIG[k].dias = Object.assign({...DEFAULT_DIAS}, j2.config[k]); } }
+    if(j2.config){ for(const k in j2.config){ if(CONFIG[k] && j2.config[k]){ const o=j2.config[k];
+      const d = o.dias || (o.lun!==undefined ? o : {});
+      CONFIG[k].dias = Object.assign({...DEFAULT_DIAS}, d);
+      CONFIG[k].peso = o.peso||""; CONFIG[k].altura = o.altura||""; } } }
   }catch(e){}
   render();
 }
@@ -425,13 +525,13 @@ async function apiBorrar(id){
 }
 async function apiSetConfig(nombre){
   if(!CLOUD) return true;
-  const dias = encodeURIComponent(JSON.stringify(CONFIG[nombre].dias));
-  const r = await fetch(`${API_URL}?action=setconfig&atleta=${encodeURIComponent(nombre)}&dias=${dias}`);
+  const perfil = encodeURIComponent(JSON.stringify({ dias:CONFIG[nombre].dias, peso:CONFIG[nombre].peso, altura:CONFIG[nombre].altura }));
+  const r = await fetch(`${API_URL}?action=setconfig&atleta=${encodeURIComponent(nombre)}&perfil=${perfil}`);
   const j = await r.json(); return j.ok;
 }
 
 /* ===== Navegación ===== */
-function ocultarTodo(){ ["#home","#atleta","#informe"].forEach(s=>$(s).classList.add("hidden")); $("#fab").classList.add("hidden"); }
+function ocultarTodo(){ ["#home","#atleta","#informe","#dieta"].forEach(s=>$(s).classList.add("hidden")); $("#fab").classList.add("hidden"); }
 function irHome(){ ocultarTodo(); $("#home").classList.remove("hidden"); actual=null; render(); window.scrollTo(0,0); }
 function abrirAtleta(nombre){
   actual=nombre; const a=ATLETAS[nombre];
@@ -444,6 +544,31 @@ function abrirAtleta(nombre){
 }
 function abrirInforme(){ document.documentElement.style.setProperty("--accent","#16191D");
   ocultarTodo(); $("#informe").classList.remove("hidden"); renderInforme(); window.scrollTo(0,0); }
+
+const DIETA = {
+  corta: [
+    ["Antes","Si entrenas temprano, con algo ligero basta: un plátano, pan o un puño de avena. No hace falta más."],
+    ["Durante","Solo agua."],
+    ["Después","Tu comida normal con proteína + carbo. Ej: huevos con tortilla."]
+  ],
+  larga: [
+    ["Antes (1–2 h)","Carbo + algo de proteína. Ej: avena con fruta y huevo, o pan con plátano."],
+    ["Durante","Agua + electrolitos. Si pasa de 75 min, mete algo de carbo (fruta, gel o bebida deportiva)."],
+    ["Después (1–2 h)","Carbo + proteína para recuperar. Ej: licuado, pollo con arroz, o huevos."]
+  ],
+  fuerza: [
+    ["Antes","Come normal, no entrenes en ayuno largo. Algo de energía en el cuerpo ayuda."],
+    ["Durante","Agua."],
+    ["Después (1–2 h)","Proteína + carbo. Ej: huevos, lácteos o un licuado."]
+  ]
+};
+function abrirDieta(){ document.documentElement.style.setProperty("--accent","#16A34A");
+  ocultarTodo(); $("#dieta").classList.remove("hidden"); dietaComida("corta"); window.scrollTo(0,0); }
+function dietaComida(tipo){
+  document.querySelectorAll("#dietSeg button").forEach(b=>b.classList.toggle("on", b.dataset.d===tipo));
+  $("#dietOut").innerHTML = DIETA[tipo].map(r=>`<div class="row"><b>${r[0]}</b><span>${r[1]}</span></div>`).join("");
+}
+document.querySelectorAll("#dietSeg button").forEach(b=>{ b.onclick=()=>dietaComida(b.dataset.d); });
 
 /* ===== Render ===== */
 function render(){
@@ -471,6 +596,17 @@ function renderAtleta(){
     $("#stMejor").textContent = a.deporte==="bici" ? mejor.toFixed(1) : fmtRitmo(mejor);
     $("#stMejorLbl").textContent = `mejor ${a.meta}`;
   } else { $("#stMejor").textContent="—"; $("#stMejorLbl").textContent="mejor marca"; }
+
+  // Perfil / IMC
+  const pf = CONFIG[actual]; const vimc = imc(pf.peso, pf.altura);
+  if(vimc){ const [cat,col]=imcCat(vimc);
+    $("#perfilCard").innerHTML = `<div class="pf-row">
+      <div><b>${pf.peso}</b><small>kg</small></div>
+      <div><b>${pf.altura}</b><small>cm</small></div>
+      <div><b style="color:${col}">${vimc.toFixed(1)}</b><small>IMC</small></div></div>
+      <div class="pf-cat" style="color:${col}">${cat}</div>
+      <div class="pf-note">El IMC es solo una referencia general: no distingue músculo de grasa, y en gente que entrena suele quedarse corto. Lo que importa es cómo rindes y te sientes.</div>`;
+  } else { $("#perfilCard").innerHTML = `<div class="pf-empty">Agrega tu peso y altura con ⚙ Editar perfil para ver tu IMC.</div>`; }
 
   // Mi semana (por día)
   const fase = faseDe();
@@ -609,7 +745,9 @@ async function borrar(id){ if(!confirm("¿Borrar esta sesión?")) return;
 
 /* ===== Editar semana ===== */
 function abrirCfg(){
-  $("#cfgTitulo").textContent = "Semana de "+actual;
+  $("#cfgTitulo").textContent = "Perfil de "+actual;
+  $("#cfgAltura").value = CONFIG[actual].altura||"";
+  $("#cfgPeso").value = CONFIG[actual].peso||"";
   const cfg = CONFIG[actual].dias;
   $("#cfgRows").innerHTML = DOW.map(dd=>{
     const opc = SLOT_OPC.map(o=>`<option value="${o[0]}" ${(cfg[dd[0]]||"")===o[0]?"selected":""}>${o[1]}</option>`).join("");
@@ -619,9 +757,11 @@ function abrirCfg(){
 }
 function cerrarCfg(){ $("#modalCfg").classList.add("hidden"); }
 async function guardarCfg(){
+  CONFIG[actual].altura = $("#cfgAltura").value;
+  CONFIG[actual].peso = $("#cfgPeso").value;
   document.querySelectorAll("#cfgRows select").forEach(sel=>{ CONFIG[actual].dias[sel.dataset.d]=sel.value; });
-  cerrarCfg(); renderAtleta(); toast("Guardando semana…");
-  const ok=await apiSetConfig(actual); toast(ok?"Semana guardada ✓":"Guardada solo localmente");
+  cerrarCfg(); renderAtleta(); toast("Guardando perfil…");
+  const ok=await apiSetConfig(actual); toast(ok?"Perfil guardado ✓":"Guardado solo localmente");
 }
 
 function toast(t){ const el=$("#toast"); el.textContent=t; el.classList.add("show"); clearTimeout(el._t); el._t=setTimeout(()=>el.classList.remove("show"),2000); }
@@ -629,6 +769,9 @@ $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") cerrarForm()
 $("#modalCfg").addEventListener("click",e=>{ if(e.target.id==="modalCfg") cerrarCfg(); });
 
 cargar();
+</script>
+<script>
+if('serviceWorker' in navigator){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
 </script>
 </body>
 </html>
