@@ -2,7 +2,7 @@
    Estrategia: red primero para el shell (así ves los cambios al actualizar),
    con respaldo de caché para abrir sin internet. No intercepta las llamadas
    a Apps Script ni a otros dominios (Strava, etc.). */
-const CACHE = 'triatlon-v1';
+const CACHE = 'triatlon-v2';
 const SHELL = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png', './icon-180.png'];
 
 self.addEventListener('install', e => {
