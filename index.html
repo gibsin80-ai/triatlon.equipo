@@ -487,6 +487,7 @@ let SESIONES = [];
 let actual = null;
 let tipoSel = "facil";
 let fotoData = null;
+let CONFIG_LOADED = false;
 
 /* ===== Helpers ===== */
 const $ = s => document.querySelector(s);
@@ -526,19 +527,24 @@ function imc(peso, altura){ peso=num(peso); altura=num(altura); if(!peso||!altur
 function imcCat(v){ if(v<18.5) return ["Bajo peso","#0EA5B5"]; if(v<25) return ["Rango saludable","#16A34A"]; if(v<30) return ["Sobrepeso","#F97316"]; return ["Obesidad","#DC2626"]; }
 
 /* ===== Datos ===== */
-async function cargar(){
-  if(!CLOUD){ $("#bannerLocal").classList.remove("hidden"); render(); return; }
-  try{
-    const r = await fetch(`${API_URL}?action=list`); const j = await r.json();
-    SESIONES = (j.sesiones||[]).map(s=>({...s, fecha:normFecha(s.fecha), distancia:num(s.distancia), tiempo_seg:num(s.tiempo_seg), rpe:num(s.rpe)}));
-  }catch(e){ toast("No se pudo conectar a la nube"); }
+async function cargarConfig(){
+  if(!CLOUD){ CONFIG_LOADED=true; return; }
   try{
     const r2 = await fetch(`${API_URL}?action=getconfig`); const j2 = await r2.json();
     if(j2.config){ for(const k in j2.config){ if(CONFIG[k] && j2.config[k]){ const o=j2.config[k];
       const d = o.dias || (o.lun!==undefined ? o : {});
       CONFIG[k].dias = Object.assign({...DEFAULT_DIAS}, d);
       CONFIG[k].peso = o.peso||""; CONFIG[k].altura = o.altura||""; } } }
-  }catch(e){}
+    CONFIG_LOADED = true;
+  }catch(e){ /* si falla, queda en false para no sobrescribir con valores por defecto */ }
+}
+async function cargar(){
+  if(!CLOUD){ $("#bannerLocal").classList.remove("hidden"); CONFIG_LOADED=true; render(); return; }
+  try{
+    const r = await fetch(`${API_URL}?action=list`); const j = await r.json();
+    SESIONES = (j.sesiones||[]).map(s=>({...s, fecha:normFecha(s.fecha), distancia:num(s.distancia), tiempo_seg:num(s.tiempo_seg), rpe:num(s.rpe)}));
+  }catch(e){ toast("No se pudo conectar a la nube"); }
+  await cargarConfig();
   render();
 }
 async function apiAgregar(s){
@@ -565,7 +571,8 @@ async function apiBorrar(id){
 async function apiSetConfig(nombre){
   if(!CLOUD) return true;
   const perfil = encodeURIComponent(JSON.stringify({ dias:CONFIG[nombre].dias, peso:CONFIG[nombre].peso, altura:CONFIG[nombre].altura }));
-  const r = await fetch(`${API_URL}?action=setconfig&atleta=${encodeURIComponent(nombre)}&perfil=${perfil}`);
+  // se manda con ambos nombres (perfil y dias) para que guarde bien sea cual sea la versión del Apps Script
+  const r = await fetch(`${API_URL}?action=setconfig&atleta=${encodeURIComponent(nombre)}&perfil=${perfil}&dias=${perfil}`);
   const j = await r.json(); return j.ok;
 }
 
@@ -815,15 +822,18 @@ async function borrar(id){ if(!confirm("¿Borrar esta sesión?")) return;
   const ok=await apiBorrar(id); if(ok){ render(); toast("Sesión borrada"); } else toast("No se pudo borrar"); }
 
 /* ===== Editar semana ===== */
-function abrirCfg(){
+async function abrirCfg(){
+  if(CLOUD && !CONFIG_LOADED){ toast("Cargando tu perfil…"); await cargarConfig();
+    if(!CONFIG_LOADED){ toast("Sin conexión: revisa internet para editar"); return; } }
   $("#cfgTitulo").textContent = "Perfil de "+actual;
   $("#cfgAltura").value = CONFIG[actual].altura||"";
   $("#cfgPeso").value = CONFIG[actual].peso||"";
   const cfg = CONFIG[actual].dias;
   $("#cfgRows").innerHTML = DOW.map(dd=>{
-    const opc = SLOT_OPC.map(o=>`<option value="${o[0]}" ${(cfg[dd[0]]||"")===o[0]?"selected":""}>${o[1]}</option>`).join("");
+    const opc = SLOT_OPC.map(o=>`<option value="${o[0]}">${o[1]}</option>`).join("");
     return `<div class="cfg-row"><label>${dd[1]}</label><select data-d="${dd[0]}">${opc}</select></div>`;
   }).join("");
+  document.querySelectorAll("#cfgRows select").forEach(sel=>{ sel.value = (cfg[sel.dataset.d]||""); });
   $("#modalCfg").classList.remove("hidden");
 }
 function cerrarCfg(){ $("#modalCfg").classList.add("hidden"); }
@@ -842,7 +852,15 @@ $("#modalCfg").addEventListener("click",e=>{ if(e.target.id==="modalCfg") cerrar
 cargar();
 </script>
 <script>
-if('serviceWorker' in navigator){ window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); }); }
+if('serviceWorker' in navigator){
+  let refreshing=false;
+  const yaControlado = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.addEventListener('controllerchange', ()=>{
+    if(refreshing) return; refreshing=true;
+    if(yaControlado) window.location.reload(); // recarga en actualizaciones, no en la 1ra instalación
+  });
+  window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
 </script>
 </body>
 </html>
